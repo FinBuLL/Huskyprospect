@@ -14,12 +14,14 @@ import {z} from 'genkit';
 import {getSocialMediaProfiles, type SocialMediaProfile} from '@/services/social-media';
 import {getJobPostings, type JobPosting} from '@/services/job-boards';
 import { getWebsiteContentSummary } from '@/services/website-analyzer'; // Assuming this service exists
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { safeHttpUrl } from '@/lib/security';
 
 const AnalyzeCompanyInputSchema = z.object({
-  companyName: z.string().describe('The name of the company to analyze.'),
-  websiteUrl: z.string().optional().describe('The URL of the company website (if available).'),
-  jobTitle: z.string().optional().describe('The specific job title the user is interested in (if applicable).'),
-  location: z.string().optional().describe('The location context for the analysis (e.g., for job search or regional UGC focus).'), // Location now applies to both
+  companyName: z.string().trim().min(1).max(200).describe('The name of the company to analyze.'),
+  websiteUrl: z.string().max(2048).refine(v => !!safeHttpUrl(v), 'Only http(s) URLs are allowed.').optional().describe('The URL of the company website (if available).'),
+  jobTitle: z.string().trim().max(200).optional().describe('The specific job title the user is interested in (if applicable).'),
+  location: z.string().trim().max(200).optional().describe('The location context for the analysis (e.g., for job search or regional UGC focus).'), // Location now applies to both
   analysisType: z.enum(['job', 'ugc']).describe('The primary focus of the analysis: finding a job or proposing UGC/social collaboration.'),
 });
 export type AnalyzeCompanyInput = z.infer<typeof AnalyzeCompanyInputSchema>;
@@ -35,7 +37,9 @@ const AnalyzeCompanyOutputSchema = z.object({
 export type AnalyzeCompanyOutput = z.infer<typeof AnalyzeCompanyOutputSchema>;
 
 export async function analyzeCompany(input: AnalyzeCompanyInput): Promise<AnalyzeCompanyOutput> {
-  return analyzeCompanyFlow(input);
+  await enforceRateLimit('analyzeCompany', 10, 60_000);
+  // Server actions are public endpoints: re-validate input on the server.
+  return analyzeCompanyFlow(AnalyzeCompanyInputSchema.parse(input));
 }
 
 // Define prompt input schema incorporating fetched data

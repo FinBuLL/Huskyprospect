@@ -24,16 +24,17 @@ import { useToast } from '@/hooks/use-toast';
 import { analyzeCompany, type AnalyzeCompanyInput, type AnalyzeCompanyOutput } from '@/ai/flows/company-analyzer';
 import { searchCompanies } from '@/services/company-search';
 import type { Company, CompanySearchCriteria } from '@/types/company';
+import { safeHttpUrl } from '@/lib/security';
 
 
 const searchFormSchema = z.object({
   searchType: z.enum(['job', 'ugc'], {
     required_error: 'Please select a search type.',
   }),
-  jobTitle: z.string().optional(),
-  location: z.string().optional(), // Keep location optional for both
-  companyName: z.string().optional(),
-  websiteUrl: z.string().url().optional().or(z.literal('')),
+  jobTitle: z.string().trim().max(200).optional(),
+  location: z.string().trim().max(200).optional(), // Keep location optional for both
+  companyName: z.string().trim().max(200).optional(),
+  websiteUrl: z.string().max(2048).refine(v => !!safeHttpUrl(v), 'Please enter a valid http(s) URL.').optional().or(z.literal('')),
 }).refine(data => {
     // If job search, require (Job Title AND Location) OR Company Name
     if (data.searchType === 'job') {
@@ -117,7 +118,7 @@ export function SearchForm({ onAnalysisComplete, onSearchResults }: SearchFormPr
                 const foundCompany = companies[0];
                 companyToAnalyze = {
                     companyName: foundCompany.name,
-                    websiteUrl: foundCompany.websiteUrl || data.websiteUrl || undefined,
+                    websiteUrl: safeHttpUrl(foundCompany.websiteUrl) || data.websiteUrl || undefined,
                     jobTitle: data.jobTitle || undefined,
                     location: data.location || undefined, // Pass location if provided
                     analysisType: analysisType,
@@ -171,7 +172,7 @@ export function SearchForm({ onAnalysisComplete, onSearchResults }: SearchFormPr
           const foundCompany = companies[0];
           companyToAnalyze = {
             companyName: foundCompany.name,
-            websiteUrl: foundCompany.websiteUrl || data.websiteUrl || undefined,
+            websiteUrl: safeHttpUrl(foundCompany.websiteUrl) || data.websiteUrl || undefined,
             analysisType: analysisType,
             jobTitle: data.jobTitle || undefined, // Pass along if user entered it
             location: data.location || undefined, // Pass location if provided
@@ -213,7 +214,7 @@ export function SearchForm({ onAnalysisComplete, onSearchResults }: SearchFormPr
       setSearchResults([]); // Clear the list display in sidebar
       const analysisInput : AnalyzeCompanyInput = {
           companyName: company.name,
-          websiteUrl: company.websiteUrl || undefined,
+          websiteUrl: safeHttpUrl(company.websiteUrl),
           analysisType: form.getValues('searchType'), // Use the current form value for type
           // Include job/location if relevant to the original search context
           jobTitle: form.getValues('jobTitle') || undefined,
