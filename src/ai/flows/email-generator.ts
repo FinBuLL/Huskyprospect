@@ -9,13 +9,14 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 const GenerateEmailInputSchema = z.object({
-  companyName: z.string().describe('The name of the company to send the email to.'),
-  analysisReport: z.string().describe('The comprehensive analysis report of the company.'),
+  companyName: z.string().trim().min(1).max(200).describe('The name of the company to send the email to.'),
+  analysisReport: z.string().max(20_000).describe('The comprehensive analysis report of the company.'),
   emailType: z.enum(['collaboration', 'job_application']).describe('The type of email to generate.'),
-  userName: z.string().describe('The name of the user.'),
-  userSkills: z.string().describe('The skills of the user.'),
+  userName: z.string().trim().max(200).describe('The name of the user.'),
+  userSkills: z.string().max(2_000).describe('The skills of the user.'),
 });
 export type GenerateEmailInput = z.infer<typeof GenerateEmailInputSchema>;
 
@@ -25,19 +26,15 @@ const GenerateEmailOutputSchema = z.object({
 export type GenerateEmailOutput = z.infer<typeof GenerateEmailOutputSchema>;
 
 export async function generateEmail(input: GenerateEmailInput): Promise<GenerateEmailOutput> {
-  return generateEmailFlow(input);
+  await enforceRateLimit('generateEmail', 10, 60_000);
+  // Server actions are public endpoints: re-validate input on the server.
+  return generateEmailFlow(GenerateEmailInputSchema.parse(input));
 }
 
 const prompt = ai.definePrompt({
   name: 'generateEmailPrompt',
   input: {
-    schema: z.object({
-      companyName: z.string().describe('The name of the company to send the email to.'),
-      analysisReport: z.string().describe('The comprehensive analysis report of the company.'),
-      emailType: z.enum(['collaboration', 'job_application']).describe('The type of email to generate.'),
-      userName: z.string().describe('The name of the user.'),
-      userSkills: z.string().describe('The skills of the user.'),
-    }),
+    schema: GenerateEmailInputSchema,
   },
   output: {
     schema: z.object({

@@ -16,6 +16,7 @@ import { generateEmail, type GenerateEmailInput } from '@/ai/flows/email-generat
 import { Loader2, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { safeHttpUrl } from '@/lib/security';
 
 
 // Metadata object might need adjustment if this page relies heavily on client-side state for its core content title/description.
@@ -143,8 +144,8 @@ export default function DashboardPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Company Overview</CardTitle>
-                         {analyzedCompany.websiteUrl && (
-                            <a href={analyzedCompany.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                         {safeHttpUrl(analyzedCompany.websiteUrl) && (
+                            <a href={safeHttpUrl(analyzedCompany.websiteUrl)} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
                                 {analyzedCompany.websiteUrl}
                             </a>
                          )}
